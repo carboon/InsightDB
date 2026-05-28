@@ -19,5 +19,5 @@ pub mod cancel;
 pub use error::ConnectorError;
 pub use config::ConnectorConfig;
 pub use connection::DatabaseConnection;
-pub use query::{QueryResult, QueryRow};
+pub use query::{QueryResult, QueryRow, QueryStream};
 pub use cancel::QueryCanceller;

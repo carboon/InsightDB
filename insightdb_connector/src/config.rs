@@ -19,6 +19,8 @@ pub struct ConnectorConfig {
     pub database: String,
     /// 额外参数，如 `ssl_mode`、`application_name` 等
     pub extra_params: Vec<(String, String)>,
+    /// 是否使用只读模式连接（默认 true）
+    pub read_only: bool,
 }
 
 impl std::fmt::Debug for ConnectorConfig {
@@ -30,6 +32,7 @@ impl std::fmt::Debug for ConnectorConfig {
             .field("user", &self.user)
             .field("password", &"********")
             .field("database", &self.database)
+            .field("read_only", &self.read_only)
             .field("extra_params", &self.extra_params)
             .finish()
     }
@@ -90,6 +93,7 @@ impl ConnectorConfig {
             password,
             database,
             extra_params,
+            read_only: true,
         })
     }
 

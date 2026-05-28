@@ -332,3 +332,139 @@ fn test_close_connection() {
     // close 应不 panic
     rt.block_on(conn.close());
 }
+
+// ── 默认只读模式 ──
+
+#[test]
+fn test_mysql_read_only_blocks_write() {
+    sqlx::any::install_default_drivers();
+    let docker = Cli::default();
+    let container = docker.run(
+        RunnableImage::from(Mysql::default())
+            .with_env_var(("MYSQL_ROOT_PASSWORD", "root")),
+    );
+    let url = mysql_url(&container);
+    let config = ConnectorConfig::from_url(&url).unwrap();
+    assert!(config.read_only, "默认应为只读模式");
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let conn = rt.block_on(DatabaseConnection::connect(config))
+        .expect("连接 MySQL 失败");
+
+    // 尝试创建表应失败（只读事务中不允许写操作）
+    let result = rt.block_on(conn.query(
+        "CREATE TABLE should_fail (id INT)",
+        10,
+    ));
+    assert!(result.is_err(), "只读模式下 CREATE TABLE 应失败");
+}
+
+#[test]
+fn test_postgres_read_only_blocks_write() {
+    sqlx::any::install_default_drivers();
+    let docker = Cli::default();
+    let container = docker.run(
+        RunnableImage::from(Postgres::default())
+            .with_env_var(("POSTGRES_USER", "test"))
+            .with_env_var(("POSTGRES_PASSWORD", "test"))
+            .with_env_var(("POSTGRES_DB", "test")),
+    );
+    let url = postgres_url(&container);
+    let config = ConnectorConfig::from_url(&url).unwrap();
+    assert!(config.read_only, "默认应为只读模式");
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let conn = rt.block_on(DatabaseConnection::connect(config))
+        .expect("连接 PostgreSQL 失败");
+
+    let result = rt.block_on(conn.query(
+        "CREATE TABLE should_fail (id INT)",
+        10,
+    ));
+    assert!(result.is_err(), "只读模式下 CREATE TABLE 应失败");
+}
+
+#[test]
+fn test_read_only_false_allows_write() {
+    sqlx::any::install_default_drivers();
+    let docker = Cli::default();
+    let container = docker.run(
+        RunnableImage::from(Mysql::default())
+            .with_env_var(("MYSQL_ROOT_PASSWORD", "root")),
+    );
+    let url = mysql_url(&container);
+    let mut config = ConnectorConfig::from_url(&url).unwrap();
+    config.read_only = false;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let conn = rt.block_on(DatabaseConnection::connect(config))
+        .expect("连接 MySQL 失败");
+
+    // 关闭只读后，写操作应成功
+    let result = rt.block_on(conn.query(
+        "CREATE TABLE write_ok (id INT)",
+        10,
+    ));
+    assert!(result.is_ok(), "关闭只读后 CREATE TABLE 应成功");
+}
+
+// ── 流式查询 ──
+
+#[test]
+fn test_query_stream_returns_rows() {
+    sqlx::any::install_default_drivers();
+    let docker = Cli::default();
+    let container = docker.run(
+        RunnableImage::from(Mysql::default())
+            .with_env_var(("MYSQL_ROOT_PASSWORD", "root")),
+    );
+    let url = mysql_url(&container);
+    let mut config = ConnectorConfig::from_url(&url).unwrap();
+    config.read_only = false;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let conn = rt.block_on(DatabaseConnection::connect(config))
+        .expect("连接 MySQL 失败");
+
+    // 创建测试表并插入数据
+    rt.block_on(conn.query("CREATE TABLE stream_test (val INT)", 10)).expect("建表失败");
+    rt.block_on(conn.query("INSERT INTO stream_test VALUES (1), (2), (3)", 10)).expect("插入失败");
+
+    // 使用流式查询（在 block_on 内创建和消费）
+    let mut collected = Vec::new();
+    rt.block_on(async {
+        let mut stream = conn.query_stream("SELECT val FROM stream_test ORDER BY val");
+        while let Some(result) = stream.next().await {
+            collected.push(result.expect("行读取失败"));
+        }
+        assert!(stream.columns().is_some(), "列信息应可用");
+        assert_eq!(stream.columns().unwrap()[0], "val");
+    });
+
+    assert_eq!(collected.len(), 3, "应返回 3 行");
+}
+
+#[test]
+fn test_query_stream_empty_result() {
+    sqlx::any::install_default_drivers();
+    let docker = Cli::default();
+    let container = docker.run(
+        RunnableImage::from(Mysql::default())
+            .with_env_var(("MYSQL_ROOT_PASSWORD", "root")),
+    );
+    let url = mysql_url(&container);
+    let config = ConnectorConfig::from_url(&url).unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let conn = rt.block_on(DatabaseConnection::connect(config))
+        .expect("连接 MySQL 失败");
+
+    let mut count = 0;
+    rt.block_on(async {
+        let mut stream = conn.query_stream("SELECT 1 AS val WHERE 1 = 0");
+        while stream.next().await.is_some() {
+            count += 1;
+        }
+    });
+    assert_eq!(count, 0, "空查询不应返回行");
+}

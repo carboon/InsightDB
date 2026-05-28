@@ -1,10 +1,11 @@
 use sqlx::{Column, Either, Executor, Row};
 use crate::config::{ConnectorConfig, DatabaseKind};
 use crate::error::ConnectorError;
-use crate::query::QueryResult;
+use crate::query::{QueryResult, QueryStream, QueryRow};
 use crate::cancel::QueryCanceller;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::OnceLock;
 
 /// 数据库连接封装，提供执行查询、取消等能力
 pub struct DatabaseConnection {
@@ -27,8 +28,31 @@ impl DatabaseConnection {
     /// 根据配置建立连接池
     pub async fn connect(config: ConnectorConfig) -> Result<Self, ConnectorError> {
         let connection_string = config.to_connection_string();
-        let pool = sqlx::any::AnyPoolOptions::new()
-            .max_connections(5)
+
+        let mut pool_opts = sqlx::any::AnyPoolOptions::new()
+            .max_connections(5);
+
+        if config.read_only {
+            let kind = config.kind.clone();
+            pool_opts = pool_opts.after_connect(move |conn: &mut sqlx::AnyConnection, _| {
+                let kind = kind.clone();
+                Box::pin(async move {
+                    match kind {
+                        DatabaseKind::MySQL => {
+                            sqlx::query("SET SESSION TRANSACTION READ ONLY")
+                                .execute(&mut *conn).await?;
+                        }
+                        DatabaseKind::PostgreSQL => {
+                            sqlx::query("SET default_transaction_read_only = on")
+                                .execute(&mut *conn).await?;
+                        }
+                    }
+                    Ok(())
+                })
+            });
+        }
+
+        let pool = pool_opts
             .connect(&connection_string)
             .await
             .map_err(|e| ConnectorError::ConnectionFailed {
@@ -104,6 +128,44 @@ impl DatabaseConnection {
             rows: rows.into_iter().map(|(_, vals)| vals).collect(),
             affected_rows: None,
         })
+    }
+
+    /// 流式查询，通过异步通道逐行返回结果，不将完整结果集加载到内存
+    pub fn query_stream(&self, sql: &str) -> QueryStream {
+        let (tx, rx) = tokio::sync::mpsc::channel::<Result<QueryRow, ConnectorError>>(64);
+        let columns = Arc::new(OnceLock::new());
+        let cols_ref = columns.clone();
+        let pool = self.pool.clone();
+        let sql = sql.to_owned();
+
+        tokio::spawn(async move {
+            use futures::TryStreamExt;
+
+            let mut stream = pool.fetch_many(sql.as_str());
+            loop {
+                match stream.try_next().await {
+                    Ok(Some(Either::Left(_))) => {}
+                    Ok(Some(Either::Right(row))) => {
+                        let row_columns: Vec<String> = row.columns().iter()
+                            .map(|c| c.name().to_string()).collect();
+                        let _ = cols_ref.set(row_columns);
+                        let values: Vec<Option<String>> = (0..row.len())
+                            .map(|i| crate::query::format_any_value(&row, i))
+                            .collect();
+                        if tx.send(Ok(values)).await.is_err() {
+                            break;
+                        }
+                    }
+                    Ok(None) => break,
+                    Err(e) => {
+                        let _ = tx.send(Err(ConnectorError::from(e))).await;
+                        break;
+                    }
+                }
+            }
+        });
+
+        QueryStream::new(columns, rx)
     }
 
     /// 创建一个取消器

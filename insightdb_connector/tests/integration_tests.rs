@@ -43,7 +43,7 @@ fn test_mysql_connect_and_ping() {
 
     rt.block_on(conn.ping()).expect("MySQL ping 失败");
 
-    let result = rt.block_on(conn.query("SELECT 1 AS val", 10))
+    let result = rt.block_on(conn.query("SELECT '1' AS val", 10))
         .expect("MySQL 查询失败");
 
     assert!(!result.columns.is_empty(), "应返回至少一列");
@@ -71,7 +71,7 @@ fn test_postgres_connect_and_ping() {
 
     rt.block_on(conn.ping()).expect("PostgreSQL ping 失败");
 
-    let result = rt.block_on(conn.query("SELECT 1 AS val", 10))
+    let result = rt.block_on(conn.query("SELECT '1' AS val", 10))
         .expect("PostgreSQL 查询失败");
 
     assert_eq!(result.columns[0], "val");

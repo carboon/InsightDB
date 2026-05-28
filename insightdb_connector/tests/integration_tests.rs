@@ -7,6 +7,7 @@
 
 use testcontainers::clients::Cli;
 use testcontainers::core::Container;
+use testcontainers::RunnableImage;
 use testcontainers_modules::{mysql::Mysql, postgres::Postgres};
 
 use insightdb_connector::{ConnectorConfig, DatabaseConnection, ConnectorError};
@@ -14,12 +15,14 @@ use insightdb_connector::{ConnectorConfig, DatabaseConnection, ConnectorError};
 /// 获取 MySQL 容器的连接 URL（同步方法）
 fn mysql_url(container: &Container<Mysql>) -> String {
     let port = container.get_host_port_ipv4(3306);
+    // 与容器内 MYSQL_ROOT_PASSWORD 一致
     format!("mysql://root:root@127.0.0.1:{port}/mysql")
 }
 
 /// 获取 PostgreSQL 容器的连接 URL
 fn postgres_url(container: &Container<Postgres>) -> String {
     let port = container.get_host_port_ipv4(5432);
+    // 与容器内 POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB 一致
     format!("postgres://test:test@127.0.0.1:{port}/test")
 }
 
@@ -27,7 +30,10 @@ fn postgres_url(container: &Container<Postgres>) -> String {
 fn test_mysql_connect_and_ping() {
     sqlx::any::install_default_drivers();
     let docker = Cli::default();
-    let container = docker.run(Mysql::default());
+    let container = docker.run(
+        RunnableImage::from(Mysql::default())
+            .with_env_var(("MYSQL_ROOT_PASSWORD", "root")),
+    );
     let url = mysql_url(&container);
     let config = ConnectorConfig::from_url(&url).unwrap();
 
@@ -50,7 +56,12 @@ fn test_mysql_connect_and_ping() {
 fn test_postgres_connect_and_ping() {
     sqlx::any::install_default_drivers();
     let docker = Cli::default();
-    let container = docker.run(Postgres::default());
+    let container = docker.run(
+        RunnableImage::from(Postgres::default())
+            .with_env_var(("POSTGRES_USER", "test"))
+            .with_env_var(("POSTGRES_PASSWORD", "test"))
+            .with_env_var(("POSTGRES_DB", "test")),
+    );
     let url = postgres_url(&container);
     let config = ConnectorConfig::from_url(&url).unwrap();
 
@@ -71,7 +82,10 @@ fn test_postgres_connect_and_ping() {
 fn test_cancel_with_no_active_query() {
     sqlx::any::install_default_drivers();
     let docker = Cli::default();
-    let container = docker.run(Mysql::default());
+    let container = docker.run(
+        RunnableImage::from(Mysql::default())
+            .with_env_var(("MYSQL_ROOT_PASSWORD", "root")),
+    );
     let url = mysql_url(&container);
     let config = ConnectorConfig::from_url(&url).unwrap();
 
@@ -95,7 +109,10 @@ fn test_cancel_with_no_active_query() {
 fn test_mysql_query_fetch_size_limits_rows() {
     sqlx::any::install_default_drivers();
     let docker = Cli::default();
-    let container = docker.run(Mysql::default());
+    let container = docker.run(
+        RunnableImage::from(Mysql::default())
+            .with_env_var(("MYSQL_ROOT_PASSWORD", "root")),
+    );
     let url = mysql_url(&container);
     let config = ConnectorConfig::from_url(&url).unwrap();
 
@@ -140,7 +157,10 @@ fn test_connection_to_nonexistent_host_fails() {
 fn test_query_syntax_error_returns_query_execution_failed() {
     sqlx::any::install_default_drivers();
     let docker = Cli::default();
-    let container = docker.run(Mysql::default());
+    let container = docker.run(
+        RunnableImage::from(Mysql::default())
+            .with_env_var(("MYSQL_ROOT_PASSWORD", "root")),
+    );
     let url = mysql_url(&container);
     let config = ConnectorConfig::from_url(&url).unwrap();
 

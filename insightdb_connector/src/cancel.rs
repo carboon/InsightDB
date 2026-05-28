@@ -6,13 +6,13 @@ use crate::error::ConnectorError;
 /// 查询取消器，允许用户主动取消正在执行的 SQL
 #[derive(Clone)]
 pub struct QueryCanceller {
-    config: ConnectorConfig,
+    _config: ConnectorConfig,
     backend_pid: Arc<Mutex<Option<u32>>>,
 }
 
 impl QueryCanceller {
     pub(crate) fn new(config: ConnectorConfig, backend_pid: Arc<Mutex<Option<u32>>>) -> Self {
-        Self { config, backend_pid }
+        Self { _config: config, backend_pid }
     }
 
     /// 取消当前查询（仅记录标记，真正取消需另建连接执行后台命令）

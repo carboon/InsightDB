@@ -5,29 +5,28 @@
 //!
 //! 注意：测试为同步形式，内部通过 tokio::runtime::Runtime 执行异步代码。
 
+use testcontainers::clients::Cli;
 use testcontainers::core::Container;
-use testcontainers::Image;
 use testcontainers_modules::{mysql::Mysql, postgres::Postgres};
 
 use insightdb_connector::{ConnectorConfig, DatabaseConnection, ConnectorError};
 
 /// 获取 MySQL 容器的连接 URL（同步方法）
 fn mysql_url(container: &Container<Mysql>) -> String {
-    let host = container.get_host();
-    let port = container.get_host_port_ipv4(3306);
-    format!("mysql://root:root@{host}:{port}/mysql")
+    let port = container.get_host_port(3306);
+    format!("mysql://root:root@127.0.0.1:{port}/mysql")
 }
 
 /// 获取 PostgreSQL 容器的连接 URL
 fn postgres_url(container: &Container<Postgres>) -> String {
-    let host = container.get_host();
-    let port = container.get_host_port_ipv4(5432);
-    format!("postgres://test:test@{host}:{port}/test")
+    let port = container.get_host_port(5432);
+    format!("postgres://test:test@127.0.0.1:{port}/test")
 }
 
 #[test]
 fn test_mysql_connect_and_ping() {
-    let container = Mysql::default().run();
+    let docker = Cli::default();
+    let container = docker.run(Mysql::default());
     let url = mysql_url(&container);
     let config = ConnectorConfig::from_url(&url).unwrap();
 
@@ -48,7 +47,8 @@ fn test_mysql_connect_and_ping() {
 
 #[test]
 fn test_postgres_connect_and_ping() {
-    let container = Postgres::default().run();
+    let docker = Cli::default();
+    let container = docker.run(Postgres::default());
     let url = postgres_url(&container);
     let config = ConnectorConfig::from_url(&url).unwrap();
 
@@ -67,7 +67,8 @@ fn test_postgres_connect_and_ping() {
 
 #[test]
 fn test_cancel_with_no_active_query() {
-    let container = Mysql::default().run();
+    let docker = Cli::default();
+    let container = docker.run(Mysql::default());
     let url = mysql_url(&container);
     let config = ConnectorConfig::from_url(&url).unwrap();
 
@@ -89,7 +90,8 @@ fn test_cancel_with_no_active_query() {
 
 #[test]
 fn test_mysql_query_fetch_size_limits_rows() {
-    let container = Mysql::default().run();
+    let docker = Cli::default();
+    let container = docker.run(Mysql::default());
     let url = mysql_url(&container);
     let config = ConnectorConfig::from_url(&url).unwrap();
 
@@ -131,7 +133,8 @@ fn test_connection_to_nonexistent_host_fails() {
 
 #[test]
 fn test_query_syntax_error_returns_query_execution_failed() {
-    let container = Mysql::default().run();
+    let docker = Cli::default();
+    let container = docker.run(Mysql::default());
     let url = mysql_url(&container);
     let config = ConnectorConfig::from_url(&url).unwrap();
 

@@ -1,30 +1,33 @@
 use std::sync::Arc;
-use tokio::sync::Mutex;
-use crate::config::ConnectorConfig;
+use std::sync::atomic::{AtomicU32, Ordering};
+use crate::config::{ConnectorConfig, DatabaseKind};
 use crate::error::ConnectorError;
+use sqlx::Executor;
 
-/// 查询取消器，允许用户主动取消正在执行的 SQL
+/// 查询取消器，通过新建独立连接向后端发送取消命令
 #[derive(Clone)]
 pub struct QueryCanceller {
-    _config: ConnectorConfig,
-    backend_pid: Arc<Mutex<Option<u32>>>,
+    config: ConnectorConfig,
+    backend_pid: Arc<AtomicU32>,
+    pool: sqlx::AnyPool,
 }
 
 impl QueryCanceller {
-    pub(crate) fn new(config: ConnectorConfig, backend_pid: Arc<Mutex<Option<u32>>>) -> Self {
-        Self { _config: config, backend_pid }
+    pub(crate) fn new(
+        config: ConnectorConfig,
+        backend_pid: Arc<AtomicU32>,
+        pool: sqlx::AnyPool,
+    ) -> Self {
+        Self { config, backend_pid, pool }
     }
 
-    /// 取消当前查询（仅记录标记，真正取消需另建连接执行后台命令）
-    /// 此简化实现仅将 backend_pid 设为 None，表示已取消
-    /// 实际生产应在另一个连接上执行 KILL QUERY 或 pg_cancel_backend
+    /// 取消当前正在执行的查询
+    ///
+    /// MySQL: 执行 `KILL QUERY <pid>`
+    /// PostgreSQL: 执行 `SELECT pg_cancel_backend(<pid>)`
     pub async fn cancel(&self) -> Result<(), ConnectorError> {
-        let mut pid_opt = self.backend_pid.lock().await;
-        if let Some(pid) = *pid_opt {
-            // TODO: 根据数据库类型建立新连接并发送取消命令
-            // 此处仅模拟成功
-            log::info!("取消请求已发送 (pid={})", pid);
-        } else {
+        let pid = self.backend_pid.load(Ordering::SeqCst);
+        if pid == 0 {
             return Err(ConnectorError::CancelFailed {
                 message: "当前没有正在执行的查询".to_string(),
                 suggestion: None,
@@ -32,8 +35,23 @@ impl QueryCanceller {
                 source_str: None,
             });
         }
-        // 取消标记
-        *pid_opt = None;
+
+        let cancel_sql = match self.config.kind {
+            DatabaseKind::MySQL => format!("KILL QUERY {pid}"),
+            DatabaseKind::PostgreSQL => format!("SELECT pg_cancel_backend({pid})"),
+        };
+
+        // 使用连接池中的一个连接发送取消命令
+        self.pool.execute(&cancel_sql as &str)
+            .await
+            .map_err(|e| ConnectorError::CancelFailed {
+                message: format!("取消查询失败 (pid={pid}): {e}"),
+                suggestion: Some("可能查询已自行结束，或当前用户无权限取消该查询".to_string()),
+                retryable: true,
+                source_str: Some(format!("{e:?}")),
+            })?;
+
+        self.backend_pid.store(0, Ordering::SeqCst);
         Ok(())
     }
 }

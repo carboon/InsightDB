@@ -9,7 +9,7 @@ pub enum DatabaseKind {
 }
 
 /// 连接配置，可从数据库 URL 解析
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ConnectorConfig {
     pub kind: DatabaseKind,
     pub host: String,
@@ -19,6 +19,20 @@ pub struct ConnectorConfig {
     pub database: String,
     /// 额外参数，如 `ssl_mode`、`application_name` 等
     pub extra_params: Vec<(String, String)>,
+}
+
+impl std::fmt::Debug for ConnectorConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ConnectorConfig")
+            .field("kind", &self.kind)
+            .field("host", &self.host)
+            .field("port", &self.port)
+            .field("user", &self.user)
+            .field("password", &"********")
+            .field("database", &self.database)
+            .field("extra_params", &self.extra_params)
+            .finish()
+    }
 }
 
 impl ConnectorConfig {

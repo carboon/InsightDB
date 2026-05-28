@@ -20,8 +20,8 @@ percent-encoding = "2"
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 tempfile = "3"
-testcontainers = { version = "0.15", features = ["experimental"] }
-testcontainers-modules = { version = "0.3", features = ["mysql", "postgres", "experimental"] }
+testcontainers = "0.15"
+testcontainers-modules = { version = "0.3", features = ["mysql", "postgres"] }
 uuid = { version = "1", features = ["v4"] }
 
 [lib]

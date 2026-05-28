@@ -1,0 +1,28 @@
+[package]
+name = "insightdb_connector"
+version = "0.1.0"
+edition = "2021"
+description = "InsightDB 核心连接层，支持 MySQL/PostgreSQL 连接、查询执行、取消与错误标准化"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "mysql", "postgres", "chrono", "uuid"] }
+url = "2"
+thiserror = "1"
+serde = { version = "1", features = ["derive"] }
+async-trait = "0.1"
+futures = "0.3"
+chrono = { version = "0.4", features = ["serde"] }
+log = "0.4"
+env_logger = "0.10"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+tempfile = "3"
+testcontainers = "0.15"
+testcontainers-modules = { version = "0.3", features = ["mysql", "postgres"] }
+uuid = { version = "1", features = ["v4"] }
+
+[lib]
+name = "insightdb_connector"
+path = "src/lib.rs"

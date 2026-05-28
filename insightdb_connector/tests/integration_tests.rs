@@ -3,32 +3,28 @@
 //! 使用 testcontainers 启动 MySQL/PostgreSQL 容器，验证连接、查询、取消等核心功能。
 //! 运行前确保系统已安装 Docker 并处于运行状态。
 
-use std::time::Duration;
-use tokio::time::sleep;
 use testcontainers::runners::AsyncRunner;
+use testcontainers::{ContainerAsync, Image};
 use testcontainers_modules::{mysql::Mysql, postgres::Postgres};
 
 use insightdb_connector::{ConnectorConfig, DatabaseConnection, ConnectorError};
 
-/// 获取 MySQL 容器的连接 URL
-fn mysql_url(container: &testcontainers::ContainerAsync<Mysql>) -> String {
+/// 获取 MySQL 容器的连接 URL（异步，因为 ContainerAsync 方法需要 await）
+async fn mysql_url(container: &ContainerAsync<Mysql>) -> String {
     let host = container.get_host().await.unwrap();
     let port = container.get_host_port_ipv4(3306).await.unwrap();
-    // 默认 root 密码 root
     format!("mysql://root:root@{host}:{port}/mysql")
 }
 
 /// 获取 PostgreSQL 容器的连接 URL
-fn postgres_url(container: &testcontainers::ContainerAsync<Postgres>) -> String {
+async fn postgres_url(container: &ContainerAsync<Postgres>) -> String {
     let host = container.get_host().await.unwrap();
     let port = container.get_host_port_ipv4(5432).await.unwrap();
-    // 默认用户和数据库均为 test，密码 test
     format!("postgres://test:test@{host}:{port}/test")
 }
 
 #[tokio::test]
 async fn test_mysql_connect_and_ping() {
-    // 启动 MySQL 容器
     let container = Mysql::default()
         .start()
         .await
@@ -40,12 +36,10 @@ async fn test_mysql_connect_and_ping() {
         .await
         .expect("连接 MySQL 失败");
 
-    // 测试 ping
     conn.ping()
         .await
         .expect("MySQL ping 失败");
 
-    // 执行简单查询
     let result = conn.query("SELECT 1 AS val", 10)
         .await
         .expect("MySQL 查询失败");
@@ -83,7 +77,6 @@ async fn test_postgres_connect_and_ping() {
 
 #[tokio::test]
 async fn test_cancel_with_no_active_query() {
-    // 测试在没有查询时取消应当返回错误
     let container = Mysql::default()
         .start()
         .await
@@ -109,7 +102,6 @@ async fn test_cancel_with_no_active_query() {
 
 #[tokio::test]
 async fn test_mysql_query_fetch_size_limits_rows() {
-    // 验证 fetch_size 限制返回行数
     let container = Mysql::default()
         .start()
         .await
@@ -121,12 +113,10 @@ async fn test_mysql_query_fetch_size_limits_rows() {
         .await
         .expect("连接 MySQL 失败");
 
-    // 创建一个包含多行的查询（使用系统表）
     let result = conn.query("SELECT * FROM (SELECT 1 AS val UNION ALL SELECT 2 UNION ALL SELECT 3) AS t", 2)
         .await
         .expect("查询失败");
 
-    // fetch_size = 2，应只返回 2 行
     assert_eq!(result.rows.len(), 2, "fetch_size 应限制返回行数");
 }
 
@@ -141,7 +131,6 @@ async fn test_invalid_url_returns_invalid_config() {
 
 #[tokio::test]
 async fn test_connection_to_nonexistent_host_fails() {
-    // 尝试连接一个不存在的主机，应得到 ConnectionFailed
     let bad_url = "mysql://root:pass@192.0.2.1:3306/test";
     let config = ConnectorConfig::from_url(bad_url).unwrap();
     let err = DatabaseConnection::connect(config)

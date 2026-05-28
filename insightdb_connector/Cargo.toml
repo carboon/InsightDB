@@ -15,13 +15,13 @@ futures = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
 log = "0.4"
 env_logger = "0.10"
-percent-encoding = "2"   # 新增，用于 to_connection_string
+percent-encoding = "2"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 tempfile = "3"
-testcontainers = "0.15"
-testcontainers-modules = { version = "0.3", features = ["mysql", "postgres"] }
+testcontainers = { version = "0.15", features = ["experimental"] }
+testcontainers-modules = { version = "0.3", features = ["mysql", "postgres", "experimental"] }
 uuid = { version = "1", features = ["v4"] }
 
 [lib]

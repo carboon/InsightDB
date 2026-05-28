@@ -18,7 +18,7 @@ pub enum ConnectorError {
         message: String,
         suggestion: Option<String>,
         retryable: bool,
-        source: Option<String>,
+        source_str: Option<String>,
     },
 
     /// 查询执行失败（语法错误、权限不足等）
@@ -27,7 +27,7 @@ pub enum ConnectorError {
         message: String,
         suggestion: Option<String>,
         retryable: bool,
-        source: Option<String>,
+        source_str: Option<String>,
     },
 
     /// 查询取消失败（后端不支持、连接丢失等）
@@ -36,7 +36,7 @@ pub enum ConnectorError {
         message: String,
         suggestion: Option<String>,
         retryable: bool,
-        source: Option<String>,
+        source_str: Option<String>,
     },
 
     /// 查询超时
@@ -54,7 +54,7 @@ pub enum ConnectorError {
     #[error("内部错误: {message}")]
     Internal {
         message: String,
-        source: Option<String>,
+        source_str: Option<String>,
     },
 }
 
@@ -98,10 +98,10 @@ impl ConnectorError {
     /// 原始错误来源（仅供日志 debug 使用）
     pub fn source_error(&self) -> Option<&str> {
         match self {
-            Self::ConnectionFailed { source, .. }
-            | Self::QueryExecutionFailed { source, .. }
-            | Self::CancelFailed { source, .. }
-            | Self::Internal { source, .. } => source.as_deref(),
+            Self::ConnectionFailed { source_str, .. }
+            | Self::QueryExecutionFailed { source_str, .. }
+            | Self::CancelFailed { source_str, .. }
+            | Self::Internal { source_str, .. } => source_str.as_deref(),
             _ => None,
         }
     }
@@ -117,26 +117,26 @@ impl From<sqlx::Error> for ConnectorError {
                 message,
                 suggestion: Some("请检查数据库是否可访问，并稍后重试".to_string()),
                 retryable: true,
-                source: Some(format!("{err:?}")),
+                source_str: Some(format!("{err:?}")),
             }
         } else if matches!(&err, sqlx::Error::Database(_)) {
             ConnectorError::QueryExecutionFailed {
                 message,
                 suggestion: None,
                 retryable: false,
-                source: Some(format!("{err:?}")),
+                source_str: Some(format!("{err:?}")),
             }
         } else if matches!(&err, sqlx::Error::Io(_)) {
             ConnectorError::ConnectionFailed {
                 message,
                 suggestion: Some("网络连接异常，请确认数据库主机和端口是否正确".to_string()),
                 retryable: true,
-                source: Some(format!("{err:?}")),
+                source_str: Some(format!("{err:?}")),
             }
         } else {
             ConnectorError::Internal {
                 message,
-                source: Some(format!("{err:?}")),
+                source_str: Some(format!("{err:?}")),
             }
         }
     }

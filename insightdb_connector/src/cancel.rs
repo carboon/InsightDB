@@ -19,7 +19,7 @@ impl QueryCanceller {
     /// 此简化实现仅将 backend_pid 设为 None，表示已取消
     /// 实际生产应在另一个连接上执行 KILL QUERY 或 pg_cancel_backend
     pub async fn cancel(&self) -> Result<(), ConnectorError> {
-        let pid_opt = self.backend_pid.lock().await;
+        let mut pid_opt = self.backend_pid.lock().await;
         if let Some(pid) = *pid_opt {
             // TODO: 根据数据库类型建立新连接并发送取消命令
             // 此处仅模拟成功
@@ -29,7 +29,7 @@ impl QueryCanceller {
                 message: "当前没有正在执行的查询".to_string(),
                 suggestion: None,
                 retryable: false,
-                source: None,
+                source_str: None,
             });
         }
         // 取消标记

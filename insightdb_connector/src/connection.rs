@@ -1,4 +1,4 @@
-use sqlx::{Either, Executor, Row};
+use sqlx::{Column, Either, Executor, Row};
 use crate::config::{ConnectorConfig, DatabaseKind};
 use crate::error::ConnectorError;
 use crate::query::QueryResult;
@@ -30,7 +30,7 @@ impl DatabaseConnection {
                 message: format!("无法建立连接池: {e}"),
                 suggestion: Some("请检查网络、凭据和数据库服务状态".to_string()),
                 retryable: true,
-                source: Some(format!("{e:?}")),
+                source_str: Some(format!("{e:?}")),
             })?;
 
         Ok(DatabaseConnection {
@@ -64,7 +64,7 @@ impl DatabaseConnection {
                 message: format!("获取连接失败: {e}"),
                 suggestion: None,
                 retryable: true,
-                source: Some(format!("{e:?}")),
+                source_str: Some(format!("{e:?}")),
             })?;
 
         // 只调用一次 fetch_many，直接使用产生的流
@@ -76,7 +76,7 @@ impl DatabaseConnection {
                 message: format!("流式读取失败: {e}"),
                 suggestion: None,
                 retryable: false,
-                source: Some(format!("{e:?}")),
+                source_str: Some(format!("{e:?}")),
             })?
         {
             match result {
@@ -118,7 +118,7 @@ impl DatabaseConnection {
                 message: format!("ping 失败: {e}"),
                 suggestion: Some("请检查数据库连接是否正常".to_string()),
                 retryable: true,
-                source: Some(format!("{e:?}")),
+                source_str: Some(format!("{e:?}")),
             })
     }
 }

@@ -13,18 +13,19 @@ use insightdb_connector::{ConnectorConfig, DatabaseConnection, ConnectorError};
 
 /// 获取 MySQL 容器的连接 URL（同步方法）
 fn mysql_url(container: &Container<Mysql>) -> String {
-    let port = container.get_host_port(3306);
+    let port = container.get_host_port_ipv4(3306);
     format!("mysql://root:root@127.0.0.1:{port}/mysql")
 }
 
 /// 获取 PostgreSQL 容器的连接 URL
 fn postgres_url(container: &Container<Postgres>) -> String {
-    let port = container.get_host_port(5432);
+    let port = container.get_host_port_ipv4(5432);
     format!("postgres://test:test@127.0.0.1:{port}/test")
 }
 
 #[test]
 fn test_mysql_connect_and_ping() {
+    sqlx::any::install_default_drivers();
     let docker = Cli::default();
     let container = docker.run(Mysql::default());
     let url = mysql_url(&container);
@@ -47,6 +48,7 @@ fn test_mysql_connect_and_ping() {
 
 #[test]
 fn test_postgres_connect_and_ping() {
+    sqlx::any::install_default_drivers();
     let docker = Cli::default();
     let container = docker.run(Postgres::default());
     let url = postgres_url(&container);
@@ -67,6 +69,7 @@ fn test_postgres_connect_and_ping() {
 
 #[test]
 fn test_cancel_with_no_active_query() {
+    sqlx::any::install_default_drivers();
     let docker = Cli::default();
     let container = docker.run(Mysql::default());
     let url = mysql_url(&container);
@@ -90,6 +93,7 @@ fn test_cancel_with_no_active_query() {
 
 #[test]
 fn test_mysql_query_fetch_size_limits_rows() {
+    sqlx::any::install_default_drivers();
     let docker = Cli::default();
     let container = docker.run(Mysql::default());
     let url = mysql_url(&container);
@@ -118,6 +122,7 @@ fn test_invalid_url_returns_invalid_config() {
 
 #[test]
 fn test_connection_to_nonexistent_host_fails() {
+    sqlx::any::install_default_drivers();
     let bad_url = "mysql://root:pass@192.0.2.1:3306/test";
     let config = ConnectorConfig::from_url(bad_url).unwrap();
 
@@ -133,6 +138,7 @@ fn test_connection_to_nonexistent_host_fails() {
 
 #[test]
 fn test_query_syntax_error_returns_query_execution_failed() {
+    sqlx::any::install_default_drivers();
     let docker = Cli::default();
     let container = docker.run(Mysql::default());
     let url = mysql_url(&container);

@@ -1,4 +1,3 @@
-use std::fmt;
 use thiserror::Error;
 
 /// InsightDB 统一连接层错误
@@ -150,12 +149,5 @@ impl ConnectorError {
             message: msg.into(),
             suggestion,
         }
-    }
-}
-
-impl fmt::Display for ConnectorError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // thiserror 已经生成 Display，这里保留空实现避免冲突
-        write!(f, "{}", self)
     }
 }

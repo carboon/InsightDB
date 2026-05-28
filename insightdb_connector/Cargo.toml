@@ -15,6 +15,7 @@ futures = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
 log = "0.4"
 env_logger = "0.10"
+percent-encoding = "2"   # 新增，用于 to_connection_string
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

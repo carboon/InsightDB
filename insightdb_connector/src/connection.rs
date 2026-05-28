@@ -1,4 +1,4 @@
-use sqlx::Executor;
+use sqlx::{Either, Executor, Row};
 use crate::config::{ConnectorConfig, DatabaseKind};
 use crate::error::ConnectorError;
 use crate::query::QueryResult;
@@ -67,16 +67,10 @@ impl DatabaseConnection {
                 source: Some(format!("{e:?}")),
             })?;
 
-        // 如果后端是 MySQL/PostgreSQL，可以获取真实 pid
-        // 这需要根据具体驱动分支，但因使用 Any 驱动，暂不分支
-        let rows_stream = conn.fetch_many(sql);
-        // 注意：fetch_many 返回 MixStream，包含行或执行结果
-        // 为简化，我们使用 fetch 收集为 Vec
-        // 但文档要求分页/流式，此处演示时直接收集前 fetch_size 行
-        use sqlx::Row;
-        let mut rows = Vec::new();
-        let mut stream = conn.fetch_many(sql);
+        // 只调用一次 fetch_many，直接使用产生的流
         use futures::TryStreamExt;
+        let mut stream = conn.fetch_many(sql);
+        let mut rows = Vec::new();
         while let Some(result) = stream.try_next().await
             .map_err(|e| ConnectorError::QueryExecutionFailed {
                 message: format!("流式读取失败: {e}"),
@@ -86,8 +80,8 @@ impl DatabaseConnection {
             })?
         {
             match result {
-                sqlx::Either::Left(_query_result) => { /* 不影响 */ }
-                sqlx::Either::Right(row) => {
+                Either::Left(_query_result) => { /* 不影响 */ }
+                Either::Right(row) => {
                     if rows.len() >= fetch_size {
                         break;
                     }

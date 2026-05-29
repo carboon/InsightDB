@@ -59,7 +59,9 @@ pub fn format_any_value(row: &sqlx::any::AnyRow, idx: usize) -> Option<String> {
         return Some(v.to_string());
     }
     if let Ok(v) = row.try_get::<Vec<u8>, _>(idx) {
-        return Some(format!("0x{}", hex::encode(&v)));
+        return String::from_utf8(v.clone())
+            .ok()
+            .or_else(|| Some(format!("0x{}", hex::encode(&v))));
     }
     None
 }

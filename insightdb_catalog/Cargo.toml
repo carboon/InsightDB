@@ -1,0 +1,23 @@
+[package]
+name = "insightdb_catalog"
+version = "0.1.0"
+edition = "2021"
+description = "InsightDB 元数据采集层：采集数据库版本、表结构、索引、统计信息等元数据"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+thiserror = "1"
+chrono = { version = "0.4", features = ["serde"] }
+log = "0.4"
+insightdb_connector = { path = "../insightdb_connector" }
+tokio = { version = "1", features = ["full"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+sqlx = { version = "0.7", features = ["any", "runtime-tokio-rustls", "mysql", "postgres"] }
+testcontainers = "0.15"
+testcontainers-modules = { version = "0.3", features = ["mysql", "postgres"] }
+
+[lib]
+name = "insightdb_catalog"
+path = "src/lib.rs"

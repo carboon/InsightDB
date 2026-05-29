@@ -17,7 +17,7 @@ pub mod cancel;
 
 // 重新导出常用类型方便外部使用
 pub use error::ConnectorError;
-pub use config::ConnectorConfig;
+pub use config::{ConnectorConfig, DatabaseKind};
 pub use connection::DatabaseConnection;
 pub use query::{QueryResult, QueryRow, QueryStream};
 pub use cancel::QueryCanceller;

@@ -1,0 +1,23 @@
+[package]
+name = "insightdb_explain"
+version = "0.1.0"
+edition = "2021"
+description = "InsightDB 执行计划解析层：解析 MySQL/PostgreSQL EXPLAIN JSON 输出，转换为统一 PlanNode 模型"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+insightdb_connector = { path = "../insightdb_connector" }
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres"] }
+tokio = { version = "1", features = ["full"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+sqlx = { version = "0.7", features = ["any", "runtime-tokio-rustls", "mysql", "postgres"] }
+testcontainers = "0.15"
+testcontainers-modules = { version = "0.3", features = ["mysql", "postgres"] }
+
+[lib]
+name = "insightdb_explain"
+path = "src/lib.rs"

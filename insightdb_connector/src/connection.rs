@@ -74,6 +74,16 @@ impl DatabaseConnection {
         &self.config.kind
     }
 
+    /// 获取连接配置的引用（用于某些需要原生驱动的场景）
+    pub fn config(&self) -> &ConnectorConfig {
+        &self.config
+    }
+
+    /// 获取连接字符串（用于创建原生数据库连接）
+    pub fn connection_string(&self) -> String {
+        self.config.to_connection_string()
+    }
+
     /// 执行 SQL 查询，返回行流式结果（每次最多取 fetch_size 行）
     pub async fn query(
         &self,

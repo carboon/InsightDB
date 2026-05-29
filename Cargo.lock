@@ -785,6 +785,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "insightdb_advisor"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "insightdb_catalog",
+ "insightdb_connector",
+ "insightdb_explain",
+ "insightdb_rules",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "testcontainers",
+ "testcontainers-modules",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "insightdb_catalog"
 version = "0.1.0"
 dependencies = [
@@ -826,6 +844,22 @@ name = "insightdb_explain"
 version = "0.1.0"
 dependencies = [
  "insightdb_connector",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "testcontainers",
+ "testcontainers-modules",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "insightdb_rules"
+version = "0.1.0"
+dependencies = [
+ "insightdb_catalog",
+ "insightdb_connector",
+ "insightdb_explain",
  "serde",
  "serde_json",
  "sqlx",

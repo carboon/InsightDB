@@ -4,4 +4,6 @@ members = [
     "insightdb_connector",
     "insightdb_explain",
     "insightdb_catalog",
+    "insightdb_rules",
+    "insightdb_advisor",
 ]

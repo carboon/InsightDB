@@ -1,0 +1,28 @@
+[package]
+name = "insightdb_ai"
+version = "0.1.0"
+edition = "2021"
+description = "InsightDB AI 解释层：脱敏、上下文压缩、Prompt 构建、流式模型调用"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+futures = "0.3"
+async-trait = "0.1"
+insightdb_rules = { path = "../insightdb_rules" }
+insightdb_advisor = { path = "../insightdb_advisor" }
+insightdb_explain = { path = "../insightdb_explain" }
+insightdb_catalog = { path = "../insightdb_catalog" }
+
+[dev-dependencies]
+insightdb_connector = { path = "../insightdb_connector" }
+sqlx = { version = "0.7", features = ["any", "runtime-tokio-rustls", "mysql", "postgres"] }
+testcontainers = "0.15"
+testcontainers-modules = { version = "0.3", features = ["mysql", "postgres"] }
+
+[lib]
+name = "insightdb_ai"
+path = "src/lib.rs"

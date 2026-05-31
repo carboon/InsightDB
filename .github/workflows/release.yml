@@ -37,9 +37,6 @@ jobs:
         with:
           targets: x86_64-pc-windows-msvc
 
-      - name: Install WiX Toolset v3 (required for .msi bundling)
-        run: choco install wixtoolset -y --no-progress
-
       - name: Install frontend dependencies
         run: npm ci
         working-directory: insightdb_desktop

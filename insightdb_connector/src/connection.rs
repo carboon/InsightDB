@@ -27,10 +27,14 @@ impl std::fmt::Debug for DatabaseConnection {
 impl DatabaseConnection {
     /// 根据配置建立连接池
     pub async fn connect(config: ConnectorConfig) -> Result<Self, ConnectorError> {
+        // 确保运行时驱动已注册（多次调用安全，内部使用 OnceCell）
+        sqlx::any::install_default_drivers();
+
         let connection_string = config.to_connection_string();
 
         let mut pool_opts = sqlx::any::AnyPoolOptions::new()
-            .max_connections(5);
+            .max_connections(5)
+            .acquire_timeout(std::time::Duration::from_secs(10));
 
         if config.read_only {
             let kind = config.kind.clone();

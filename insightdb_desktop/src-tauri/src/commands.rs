@@ -84,7 +84,11 @@ pub async fn connect(
     state: tauri::State<'_, AppState>,
     req: ConnectionRequest,
 ) -> Result<ConnectionInfo, String> {
-    let config = ConnectorConfig::from_url(&req.url).map_err(|e| format!("URL 解析失败: {e}"))?;
+    log::info!("收到连接请求: {}", req.url);
+    let config = ConnectorConfig::from_url(&req.url).map_err(|e| {
+        log::error!("URL 解析失败: {e}");
+        format!("URL 解析失败: {e}")
+    })?;
     let read_only = req.read_only.unwrap_or(true);
 
     let mut config = config;
@@ -92,9 +96,13 @@ pub async fn connect(
         config.read_only = false;
     }
 
+    log::info!("正在连接 {}@{}:{}/{} (read_only={})", config.user, config.host, config.port, config.database, config.read_only);
     let conn = DatabaseConnection::connect(config)
         .await
-        .map_err(|e| format!("连接失败: {e}"))?;
+        .map_err(|e| {
+            log::error!("连接失败: {e}");
+            format!("连接失败: {e}")
+        })?;
 
     let version = collect_version(&conn).await.unwrap_or_else(|_| "unknown".into());
     let db_type = match conn.database_kind() {
@@ -108,6 +116,8 @@ pub async fn connect(
         database: conn.config().database.clone(),
         connected: true,
     };
+
+    log::info!("连接成功: {} {} {}", info.db_type, info.version, info.database);
 
     let mut guard = state.connection.lock().await;
     *guard = Some(Arc::new(conn));

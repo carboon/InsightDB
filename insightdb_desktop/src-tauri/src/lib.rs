@@ -14,6 +14,13 @@ fn default_storage_path() -> PathBuf {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // 初始化日志：默认 info 级别，可通过 RUST_LOG 环境变量覆盖
+    env_logger::Builder::from_env(
+        env_logger::Env::default().default_filter_or("info")
+    ).init();
+
+    log::info!("InsightDB 启动中...");
+
     let storage_path = default_storage_path();
     let storage = ReportStorage::open(&storage_path)
         .expect("无法打开报告数据库");

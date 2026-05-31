@@ -1,7 +1,7 @@
 {
   "productName": "InsightDB",
   "version": "0.1.0",
-  "identifier": "com.insightdb.app",
+  "identifier": "com.insightdb.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",

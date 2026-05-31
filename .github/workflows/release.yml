@@ -14,8 +14,11 @@ env:
   CARGO_INCREMENTAL: 0
   CARGO_PROFILE_DEV_DEBUG: 0
 
+permissions:
+  contents: write
+
 jobs:
-  # ── Windows (x86_64) ──
+  # ── Windows unsigned build (x86_64) ──
   build-windows:
     runs-on: windows-latest
     strategy:
@@ -28,6 +31,11 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
       - name: Install frontend dependencies
         run: npm ci
         working-directory: insightdb_desktop
@@ -36,8 +44,6 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         with:
           projectPath: insightdb_desktop
           tagName: ${{ github.ref_name }}
@@ -50,17 +56,16 @@ jobs:
             ### 下载
             - **Windows**: `.msi` 安装包 或 `.exe` 安装程序
             - **macOS**: `.dmg` 磁盘映像
-            - **Linux**: `.AppImage` 或 `.deb`
 
             ### 功能
             - MySQL 8.0 / PostgreSQL 15+ 连接
             - SQL 执行与 EXPLAIN 计划解析
             - 6 条确定性诊断规则（全表扫描/索引缺失/filesort/临时表/NestedLoop/异常行数）
-            - AI 辅助诊断解释（事实 vs 推断标注）
+            - AI 辅助诊断解释原型（Mock 客户端，事实 vs 推断标注）
           releaseDraft: ${{ github.event.inputs.draft || true }}
           args: --target x86_64-pc-windows-msvc
 
-  # ── macOS (Universal: aarch64 + x86_64) ──
+  # ── macOS unsigned build (Universal: aarch64 + x86_64) ──
   build-macos:
     runs-on: macos-latest
     strategy:
@@ -73,8 +78,10 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Install Rust targets
-        run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin,aarch64-apple-darwin
 
       - name: Install frontend dependencies
         run: npm ci
@@ -84,56 +91,9 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         with:
           projectPath: insightdb_desktop
           tagName: ${{ github.ref_name }}
           releaseName: 'InsightDB v__VERSION__'
           releaseDraft: ${{ github.event.inputs.draft || true }}
           args: --target universal-apple-darwin
-
-  # ── Linux (x86_64) ──
-  build-linux:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            patchelf
-
-      - name: Install frontend dependencies
-        run: npm ci
-        working-directory: insightdb_desktop
-
-      - name: Build Tauri (Linux)
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-        with:
-          projectPath: insightdb_desktop
-          tagName: ${{ github.ref_name }}
-          releaseName: 'InsightDB v__VERSION__'
-          releaseDraft: ${{ github.event.inputs.draft || true }}
-          args: --target x86_64-unknown-linux-gnu

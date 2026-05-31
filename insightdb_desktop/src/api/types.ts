@@ -67,3 +67,14 @@ export interface SanitizedContext {
   db_version: string;
   identifier_mapping: [string, string][];
 }
+
+export interface ReportSummary {
+  id: string;
+  sql: string;
+  db_type: string;
+  database_name: string;
+  overall_severity: string;
+  total_findings: number;
+  summary: string;
+  generated_at: string;
+}

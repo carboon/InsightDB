@@ -2,6 +2,7 @@ import { ConnectionPanel } from "./components/ConnectionPanel";
 import { SqlWorkspace } from "./components/SqlWorkspace";
 import { ResultsViewer } from "./components/ResultsViewer";
 import { DiagnosisReport } from "./components/DiagnosisReport";
+import { HistoryPanel } from "./components/HistoryPanel";
 import { useAppStore } from "./stores/appStore";
 
 function App() {
@@ -15,13 +16,14 @@ function App() {
           <span className="text-xs text-muted">慢 SQL 诊断工作台</span>
         </div>
         <ConnectionPanel />
+        <HistoryPanel />
       </aside>
 
       <main className="main">
         <SqlWorkspace />
 
         {viewMode === "query" && <ResultsViewer />}
-        {viewMode === "diagnosis" && <DiagnosisReport />}
+        {(viewMode === "diagnosis" || viewMode === "history") && <DiagnosisReport />}
       </main>
     </div>
   );

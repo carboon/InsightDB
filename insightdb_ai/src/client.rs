@@ -225,6 +225,144 @@ impl AiClient for NoopAiClient {
     }
 }
 
+// ── 真实 AI 客户端（OpenRouter / OpenAI 兼容 API）──
+
+use reqwest::Client as HttpClient;
+use std::env;
+
+pub struct RealAiClient {
+    model: String,
+    api_url: String,
+    api_key: String,
+    http: HttpClient,
+}
+
+impl RealAiClient {
+    pub fn new(model: impl Into<String>) -> Self {
+        let key = env::var("INSIGHTDB_AI_KEY").unwrap_or_default();
+        let url = env::var("INSIGHTDB_AI_URL")
+            .unwrap_or_else(|_| "https://openrouter.ai/api/v1/chat/completions".into());
+        Self {
+            model: model.into(),
+            api_url: url,
+            api_key: key,
+            http: HttpClient::new(),
+        }
+    }
+
+    pub fn with_key(model: impl Into<String>, api_key: impl Into<String>) -> Self {
+        Self {
+            model: model.into(),
+            api_url: "https://openrouter.ai/api/v1/chat/completions".into(),
+            api_key: api_key.into(),
+            http: HttpClient::new(),
+        }
+    }
+
+    async fn call_api(&self, prompt: &str) -> Result<String, AiError> {
+        if self.api_key.is_empty() || self.api_key == "MOCK" {
+            return Err(AiError::CallFailed(
+                "API key 未配置。请设置环境变量 INSIGHTDB_AI_KEY 或使用 MOCK 客户端。".into(),
+            ));
+        }
+
+        let body = serde_json::json!({
+            "model": self.model,
+            "messages": [
+                { "role": "user", "content": prompt }
+            ],
+            "temperature": 0.3,
+            "max_tokens": 2048,
+        });
+
+        let resp = self
+            .http
+            .post(&self.api_url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| AiError::CallFailed(format!("网络请求失败: {e}")))?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let text = resp.text().await.unwrap_or_default();
+            return Err(if status.as_u16() == 429 {
+                AiError::RateLimited(text)
+            } else {
+                AiError::CallFailed(format!("API 返回 {status}: {text}"))
+            });
+        }
+
+        let result: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| AiError::ParseError(format!("响应解析失败: {e}")))?;
+
+        let content = result["choices"][0]["message"]["content"]
+            .as_str()
+            .ok_or_else(|| AiError::ParseError("API 响应缺少 choices[0].message.content".into()))?;
+
+        Ok(content.to_string())
+    }
+
+    fn parse_explanation(&self, response: &str) -> Result<AiExplanation, AiError> {
+        let content = extract_json_block(response);
+        serde_json::from_str(&content)
+            .map_err(|e| AiError::ParseError(format!("JSON 解析失败: {e}")))
+    }
+}
+
+fn extract_json_block(text: &str) -> String {
+    if let Some(start) = text.find('{') {
+        let mut depth = 0;
+        let mut in_string = false;
+        let mut escape = false;
+        for (i, c) in text[start..].char_indices() {
+            if escape {
+                escape = false;
+                continue;
+            }
+            match c {
+                '\\' => escape = true,
+                '"' => in_string = !in_string,
+                '{' if !in_string => depth += 1,
+                '}' if !in_string => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return text[start..start + i + 1].to_string();
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    text.to_string()
+}
+
+#[async_trait]
+impl AiClient for RealAiClient {
+    async fn explain(&self, prompt: &str) -> Result<AiExplanation, AiError> {
+        let response = self.call_api(prompt).await?;
+        self.parse_explanation(&response)
+    }
+
+    async fn explain_stream(&self, _prompt: &str) -> Result<AiStream, AiError> {
+        let (tx, rx) = mpsc::channel::<AiStreamEvent>(1);
+        let _ = tx
+            .send(AiStreamEvent::Error(
+                "RealAiClient 暂不支持流式输出，请使用非流式接口".into(),
+            ))
+            .await;
+        Ok(Box::pin(tokio_stream::wrappers::ReceiverStream::new(rx)))
+    }
+
+    fn model_name(&self) -> &str {
+        &self.model
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -284,5 +422,74 @@ mod tests {
     async fn test_mock_client_model_name() {
         let client = MockAiClient::new("gpt-4-test");
         assert_eq!(client.model_name(), "gpt-4-test");
+    }
+
+    #[test]
+    fn test_extract_json_block_pure_json() {
+        let json = r#"{"problem_summary":"test","evidence":[],"recommendations":[],"confidence":0.5,"model":"test"}"#;
+        let result = extract_json_block(json);
+        assert_eq!(result, json);
+    }
+
+    #[test]
+    fn test_extract_json_block_with_prefix_text() {
+        let text = r#"Here is the analysis:
+```json
+{"problem_summary":"test","evidence":[],"recommendations":[],"confidence":0.5,"model":"test"}
+```
+Hope it helps!"#;
+        let result = extract_json_block(text);
+        assert!(result.starts_with("{"));
+        assert!(result.ends_with("}"));
+        assert!(result.contains("\"problem_summary\""));
+    }
+
+    #[test]
+    fn test_extract_json_block_nested_braces() {
+        let text = r#"{"problem_summary":"ok","evidence":[{"statement":"x","source":"s","is_fact":true}],"recommendations":[],"confidence":0.5,"model":"m"}"#;
+        let result = extract_json_block(text);
+        assert!(result.starts_with("{"));
+        assert!(result.ends_with("}"));
+        assert!(result.contains("\"statement\":\"x\""));
+    }
+
+    #[test]
+    fn test_extract_json_block_string_with_braces() {
+        let text = r#"{"a":"{b}","c":"}"}"#;
+        let result = extract_json_block(text);
+        assert_eq!(result, text);
+    }
+
+    #[test]
+    fn test_extract_json_block_no_json() {
+        let text = "no json here at all";
+        let result = extract_json_block(text);
+        assert_eq!(result, text);
+    }
+
+    #[test]
+    fn test_real_client_parse_explanation_valid() {
+        let client = RealAiClient::with_key("test-model", "MOCK");
+        let json = r#"{"problem_summary":"test","evidence":[],"recommendations":[],"confidence":0.5,"model":"test"}"#;
+        let result = client.parse_explanation(json).unwrap();
+        assert_eq!(result.problem_summary, "test");
+        assert_eq!(result.confidence, 0.5);
+    }
+
+    #[test]
+    fn test_real_client_parse_explanation_with_wrapper() {
+        let client = RealAiClient::with_key("test-model", "MOCK");
+        let text = "asdf\n```json\n{\"problem_summary\":\"ok\",\"evidence\":[],\"recommendations\":[{\"action\":\"create index\",\"benefit\":\"fast\",\"risk\":\"write cost\",\"verification_sql\":null,\"is_inference\":true}],\"confidence\":0.9,\"model\":\"gpt4\"}\n```";
+        let result = client.parse_explanation(text).unwrap();
+        assert_eq!(result.problem_summary, "ok");
+        assert_eq!(result.recommendations.len(), 1);
+        assert_eq!(result.confidence, 0.9);
+    }
+
+    #[test]
+    fn test_real_client_parse_explanation_invalid() {
+        let client = RealAiClient::with_key("test-model", "MOCK");
+        let result = client.parse_explanation("not json {");
+        assert!(result.is_err());
     }
 }

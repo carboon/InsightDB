@@ -7,5 +7,6 @@ members = [
     "insightdb_rules",
     "insightdb_advisor",
     "insightdb_ai",
+    "insightdb_storage",
     "insightdb_desktop/src-tauri",
 ]

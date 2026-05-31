@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../api/adapter";
 import { useAppStore } from "../stores/appStore";
 import type { DiagnosisReport, AiExplanation } from "../api/types";
+import { PromptPreview } from "./PromptPreview";
 
 interface Props {
   diagnosis: DiagnosisReport;
@@ -11,12 +12,14 @@ export function AiPanel({ diagnosis }: Props) {
   const { aiExplanation, aiRunning, aiError, setAiExplanation, setAiRunning, setAiError } =
     useAppStore();
   const [expanded, setExpanded] = useState(false);
+  const [showPrompt, setShowPrompt] = useState(false);
 
   const handleAskAi = async () => {
     if (!diagnosis) return;
     setAiRunning(true);
     setAiError(null);
     setExpanded(true);
+    setShowPrompt(false);
     try {
       const json = JSON.stringify(diagnosis);
       const result = await api.aiExplain(json);
@@ -26,11 +29,22 @@ export function AiPanel({ diagnosis }: Props) {
     }
   };
 
+  if (showPrompt) {
+    return <PromptPreview diagnosis={diagnosis} onClose={() => setShowPrompt(false)} />;
+  }
+
   if (!expanded) {
     return (
       <div className="ai-trigger">
         <button onClick={handleAskAi} disabled={aiRunning} className="btn btn-accent btn-sm">
           {aiRunning ? "AI 分析中..." : "AI 解释诊断结果"}
+        </button>
+        <button
+          onClick={() => setShowPrompt(true)}
+          className="btn btn-secondary btn-sm"
+          style={{ marginLeft: 8 }}
+        >
+          Preview Prompt
         </button>
       </div>
     );
@@ -44,7 +58,12 @@ export function AiPanel({ diagnosis }: Props) {
     return (
       <div className="panel ai-panel">
         <div className="error-text">{aiError}</div>
-        <button onClick={handleAskAi} className="btn btn-sm">重试</button>
+        <div className="flex-row gap-sm" style={{ marginTop: 8 }}>
+          <button onClick={handleAskAi} className="btn btn-sm">重试</button>
+          <button onClick={() => setShowPrompt(true)} className="btn btn-sm btn-secondary">
+            Preview Prompt
+          </button>
+        </div>
       </div>
     );
   }
@@ -96,7 +115,12 @@ export function AiPanel({ diagnosis }: Props) {
         </div>
       )}
 
-      <button onClick={() => setExpanded(false)} className="btn btn-secondary btn-sm">收起</button>
+      <div className="flex-row gap-sm">
+        <button onClick={() => setExpanded(false)} className="btn btn-secondary btn-sm">收起</button>
+        <button onClick={() => setShowPrompt(true)} className="btn btn-secondary btn-sm">
+          Preview Prompt
+        </button>
+      </div>
     </div>
   );
 }

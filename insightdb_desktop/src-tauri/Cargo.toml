@@ -18,6 +18,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 thiserror = "1"
+dirs = "5"
 
 insightdb_connector = { path = "../../insightdb_connector" }
 insightdb_catalog = { path = "../../insightdb_catalog" }
@@ -25,3 +26,4 @@ insightdb_explain = { path = "../../insightdb_explain" }
 insightdb_rules = { path = "../../insightdb_rules" }
 insightdb_advisor = { path = "../../insightdb_advisor" }
 insightdb_ai = { path = "../../insightdb_ai" }
+insightdb_storage = { path = "../../insightdb_storage" }

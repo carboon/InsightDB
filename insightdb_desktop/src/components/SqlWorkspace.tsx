@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "../api/adapter";
 import { useAppStore } from "../stores/appStore";
 
@@ -7,6 +7,17 @@ export function SqlWorkspace() {
     useAppStore();
 
   const [fetchSize, setFetchSize] = useState(100);
+  const [elapsed, setElapsed] = useState(0);
+
+  const isRunning = queryRunning || diagnosisRunning;
+
+  useEffect(() => {
+    if (isRunning) {
+      setElapsed(0);
+      const interval = setInterval(() => setElapsed((t) => t + 1), 1000);
+      return () => clearInterval(interval);
+    }
+  }, [isRunning]);
 
   const setQueryResult = useAppStore((s) => s.setQueryResult);
   const setQueryRunning = useAppStore((s) => s.setQueryRunning);
@@ -50,8 +61,6 @@ export function SqlWorkspace() {
     }
   };
 
-  const isRunning = queryRunning || diagnosisRunning;
-
   return (
     <div className="panel sql-workspace">
       <textarea
@@ -84,9 +93,16 @@ export function SqlWorkspace() {
           />
           行
         </span>
-        <span className="text-sm">
-          {viewMode === "query" ? "查询模式" : "诊断模式"}
-        </span>
+        {isRunning && (
+          <span className="text-sm" style={{ color: "var(--accent)" }}>
+            {queryRunning ? "查询中" : "诊断中"}... {elapsed}s
+          </span>
+        )}
+        {!isRunning && (
+          <span className="text-sm">
+            {viewMode === "query" ? "查询模式" : "诊断模式"}
+          </span>
+        )}
       </div>
     </div>
   );

@@ -174,3 +174,23 @@ th { background: var(--bg-card); position: sticky; top: 0; }
 .brand h1 { font-size: 18px; }
 
 code { font-family: "Menlo", monospace; font-size: 12px; background: var(--bg); padding: 1px 4px; border-radius: 3px; }
+
+.history-panel { max-height: 100%; overflow-y: auto; }
+.history-item {
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 6px;
+  cursor: pointer;
+  background: var(--bg-card);
+  transition: border-color 0.15s;
+}
+.history-item:hover { border-color: var(--primary); }
+.history-item-active { border-color: var(--primary); }
+.history-item-sql {
+  margin: 4px 0;
+  font-family: "Menlo", monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

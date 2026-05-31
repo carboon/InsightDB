@@ -7,6 +7,10 @@ use insightdb_explain::explain;
 use insightdb_rules::run_rules;
 use insightdb_advisor::DiagnosisReport;
 use insightdb_ai::{Sanitizer, PromptBuilder, SanitizedContext, AiExplanation, AiClient};
+use insightdb_storage::{ReportStorage, ReportSummary};
+use crate::sql_guard::check_dangerous_sql;
+
+const DANGER_PREFIX: &str = "[安全拦截] ";
 
 /// 全局连接状态（Tauri managed state）
 pub struct AppState {
@@ -17,6 +21,19 @@ impl AppState {
     pub fn new() -> Self {
         Self {
             connection: Mutex::new(None),
+        }
+    }
+}
+
+/// 全局报告存储状态
+pub struct StorageState {
+    pub storage: Mutex<ReportStorage>,
+}
+
+impl StorageState {
+    pub fn new(storage: ReportStorage) -> Self {
+        Self {
+            storage: Mutex::new(storage),
         }
     }
 }
@@ -112,6 +129,10 @@ pub async fn execute_query(
     state: tauri::State<'_, AppState>,
     req: QueryRequest,
 ) -> Result<QueryResultDto, String> {
+    if let Err(reason) = check_dangerous_sql(&req.sql) {
+        return Err(format!("{DANGER_PREFIX}{}", reason.description()));
+    }
+
     let guard = state.connection.lock().await;
     let conn = guard.as_ref().ok_or("未连接数据库")?;
 
@@ -143,6 +164,10 @@ pub async fn diagnose(
     state: tauri::State<'_, AppState>,
     req: DiagnosisRequest,
 ) -> Result<DiagnosisReport, String> {
+    if let Err(reason) = check_dangerous_sql(&req.sql) {
+        return Err(format!("{DANGER_PREFIX}{}", reason.description()));
+    }
+
     let guard = state.connection.lock().await;
     let conn = guard.as_ref().ok_or("未连接数据库")?;
 
@@ -177,8 +202,14 @@ pub async fn ai_explain(
     let builder = PromptBuilder::default();
     let prompt = builder.build(&ctx);
 
-    let client = insightdb_ai::MockAiClient::new("insightdb-mock");
-    client.explain(&prompt).await.map_err(|e| format!("AI 调用失败: {e}"))
+    let real = insightdb_ai::RealAiClient::new("deepseek/deepseek-chat");
+    match real.explain(&prompt).await {
+        Ok(explanation) => Ok(explanation),
+        Err(_e) => {
+            let fallback = insightdb_ai::MockAiClient::new("insightdb-mock");
+            fallback.explain(&prompt).await.map_err(|e| format!("AI 调用失败: {e}"))
+        }
+    }
 }
 
 #[tauri::command]
@@ -198,4 +229,43 @@ pub async fn ping(state: tauri::State<'_, AppState>) -> Result<String, String> {
     let conn = guard.as_ref().ok_or("未连接数据库")?;
     conn.ping().await.map_err(|e| format!("ping 失败: {e}"))?;
     Ok("pong".into())
+}
+
+// ── 历史报告命令 ──
+
+#[tauri::command]
+pub async fn save_report(
+    state: tauri::State<'_, StorageState>,
+    report_json: String,
+) -> Result<String, String> {
+    let report: DiagnosisReport = serde_json::from_str(&report_json)
+        .map_err(|e| format!("报告解析失败: {e}"))?;
+    let guard = state.storage.lock().await;
+    guard.save(&report).map_err(|e| format!("保存失败: {e}"))
+}
+
+#[tauri::command]
+pub async fn list_reports(
+    state: tauri::State<'_, StorageState>,
+) -> Result<Vec<ReportSummary>, String> {
+    let guard = state.storage.lock().await;
+    guard.list().map_err(|e| format!("加载历史失败: {e}"))
+}
+
+#[tauri::command]
+pub async fn get_report(
+    state: tauri::State<'_, StorageState>,
+    id: String,
+) -> Result<DiagnosisReport, String> {
+    let guard = state.storage.lock().await;
+    guard.get(&id).map_err(|e| format!("加载报告失败: {e}"))
+}
+
+#[tauri::command]
+pub async fn delete_report(
+    state: tauri::State<'_, StorageState>,
+    id: String,
+) -> Result<(), String> {
+    let guard = state.storage.lock().await;
+    guard.delete(&id).map_err(|e| format!("删除失败: {e}"))
 }

@@ -1,0 +1,19 @@
+[package]
+name = "insightdb_storage"
+version = "0.1.0"
+edition = "2021"
+description = "InsightDB 本地报告持久化层"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = "0.4"
+uuid = { version = "1", features = ["v4"] }
+thiserror = "1"
+rusqlite = { version = "0.30", features = ["bundled"] }
+insightdb_advisor = { path = "../insightdb_advisor" }
+
+[dev-dependencies]
+insightdb_rules = { path = "../insightdb_rules" }
+insightdb_explain = { path = "../insightdb_explain" }
+insightdb_catalog = { path = "../insightdb_catalog" }

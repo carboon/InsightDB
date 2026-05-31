@@ -1,5 +1,8 @@
+import { useState } from "react";
+import { api } from "../api/adapter";
 import { useAppStore } from "../stores/appStore";
 import { AiPanel } from "./AiPanel";
+import { ExplainViewer } from "./ExplainViewer";
 
 const severityColor = (severity: string): string => {
   switch (severity) {
@@ -15,22 +18,76 @@ const severityColor = (severity: string): string => {
   }
 };
 
+const isDangerous = (msg: string | null) => msg?.startsWith("[安全拦截]");
+
 export function DiagnosisReport() {
-  const { diagnosis, diagnosisRunning, diagnosisError } = useAppStore();
+  const { diagnosis, diagnosisRunning, diagnosisError, viewMode } = useAppStore();
+  const { setHistoryLoading, setHistoryList, setHistoryError } = useAppStore();
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
   if (diagnosisRunning) {
     return <div className="panel diagnosis-panel loading">诊断中...</div>;
   }
 
   if (diagnosisError) {
-    return <div className="panel diagnosis-panel error-text">{diagnosisError}</div>;
+    const dangerous = isDangerous(diagnosisError);
+    return (
+      <div className="panel diagnosis-panel">
+        <div
+          className={dangerous ? "dangerous-error" : "error-text"}
+          style={dangerous ? {
+            padding: 16,
+            background: "var(--danger-bg, #fff5f5)",
+            border: "2px solid var(--danger)",
+            borderRadius: 4,
+            color: "var(--danger)",
+            fontWeight: 600,
+          } : undefined}
+        >
+          {dangerous && <span style={{ marginRight: 8 }}>&#x26A0;</span>}
+          {dangerous ? diagnosisError.replace("[安全拦截] ", "") : diagnosisError}
+        </div>
+      </div>
+    );
   }
 
   if (!diagnosis) {
+    if (viewMode === "history") {
+      return (
+        <div className="panel diagnosis-panel">
+          <div className="text-muted" style={{ padding: 24, textAlign: "center" }}>
+            请从侧边栏选择一份历史报告查看详情
+          </div>
+        </div>
+      );
+    }
     return null;
   }
 
   const { findings, summary, overall_severity, total_findings, sql } = diagnosis;
+
+  const handleSave = async () => {
+    if (!diagnosis) return;
+    setSaving(true);
+    setSaveMsg(null);
+    try {
+      const json = JSON.stringify(diagnosis);
+      await api.saveReport(json);
+      setSaveMsg("已保存");
+      setHistoryLoading(true);
+      try {
+        const list = await api.listReports();
+        setHistoryList(list);
+      } catch (e) {
+        setHistoryError(String(e));
+      }
+    } catch (e) {
+      setSaveMsg(`保存失败: ${e}`);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="panel diagnosis-panel">
@@ -40,7 +97,18 @@ export function DiagnosisReport() {
           {overall_severity}
         </span>
         <span className="text-sm text-muted">共 {total_findings} 个问题</span>
+        {viewMode === "diagnosis" && (
+          <button
+            className="btn btn-sm btn-secondary"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? "保存中..." : "保存报告"}
+          </button>
+        )}
       </div>
+
+      {saveMsg && <div className="text-sm" style={{ marginBottom: 4, color: saveMsg.includes("失败") ? "var(--danger)" : "var(--accent)" }}>{saveMsg}</div>}
 
       <div className="report-summary">{summary}</div>
 
@@ -78,6 +146,8 @@ export function DiagnosisReport() {
           </div>
         </div>
       ))}
+
+      <ExplainViewer report={diagnosis} />
 
       <AiPanel diagnosis={diagnosis} />
     </div>

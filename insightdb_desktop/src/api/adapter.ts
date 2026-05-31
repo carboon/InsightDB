@@ -5,6 +5,7 @@ import type {
   DiagnosisReport,
   AiExplanation,
   SanitizedContext,
+  ReportSummary,
 } from "./types";
 
 export const api = {
@@ -28,4 +29,16 @@ export const api = {
 
   sanitizeContext: (reportJson: string): Promise<SanitizedContext> =>
     invoke("sanitize_context", { reportJson }),
+
+  saveReport: (reportJson: string): Promise<string> =>
+    invoke("save_report", { reportJson }),
+
+  listReports: (): Promise<ReportSummary[]> =>
+    invoke("list_reports"),
+
+  getReport: (id: string): Promise<DiagnosisReport> =>
+    invoke("get_report", { id }),
+
+  deleteReport: (id: string): Promise<void> =>
+    invoke("delete_report", { id }),
 };

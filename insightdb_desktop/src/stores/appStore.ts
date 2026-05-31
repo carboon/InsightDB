@@ -4,6 +4,7 @@ import type {
   QueryResultData,
   DiagnosisReport,
   AiExplanation,
+  ReportSummary,
 } from "../api/types";
 
 type ViewMode = "query" | "diagnosis" | "history";
@@ -30,6 +31,11 @@ interface AppState {
   aiRunning: boolean;
   aiError: string | null;
 
+  // 历史报告状态
+  historyList: ReportSummary[];
+  historyLoading: boolean;
+  historyError: string | null;
+
   // UI 状态
   viewMode: ViewMode;
   selectedHistoryId: string | null;
@@ -52,6 +58,10 @@ interface AppState {
   setAiRunning: (v: boolean) => void;
   setAiError: (e: string | null) => void;
 
+  setHistoryList: (list: ReportSummary[]) => void;
+  setHistoryLoading: (v: boolean) => void;
+  setHistoryError: (e: string | null) => void;
+
   setViewMode: (m: ViewMode) => void;
   setSelectedHistoryId: (id: string | null) => void;
 
@@ -72,6 +82,9 @@ const initialState = {
   aiExplanation: null,
   aiRunning: false,
   aiError: null,
+  historyList: [],
+  historyLoading: false,
+  historyError: null,
   viewMode: "query" as ViewMode,
   selectedHistoryId: null,
 };
@@ -95,6 +108,10 @@ export const useAppStore = create<AppState>((set) => ({
   setAiExplanation: (aiExplanation) => set({ aiExplanation, aiRunning: false }),
   setAiRunning: (aiRunning) => set({ aiRunning }),
   setAiError: (aiError) => set({ aiError, aiRunning: false }),
+
+  setHistoryList: (historyList) => set({ historyList, historyLoading: false }),
+  setHistoryLoading: (historyLoading) => set({ historyLoading }),
+  setHistoryError: (historyError) => set({ historyError, historyLoading: false }),
 
   setViewMode: (viewMode) => set({ viewMode }),
   setSelectedHistoryId: (selectedHistoryId) => set({ selectedHistoryId }),
